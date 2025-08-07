@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIPER HUB - Fixed</title>
+    <title>VIPER HUB - Secured</title>
     <style>
         * {
             margin: 0;
@@ -130,6 +130,11 @@
             width: 100%;
             z-index: 10;
             position: relative;
+        }
+
+        .blocked-container {
+            background: rgba(255, 0, 0, 0.1);
+            border: 2px solid rgba(255, 0, 0, 0.3);
         }
 
         h1 {
@@ -264,6 +269,33 @@
             border-radius: 8px;
         }
 
+        .error-message {
+            color: #ff6b6b;
+            font-size: 1rem;
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .redirect-btn {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .redirect-btn:hover {
+            background: #ff6666;
+            transform: translateY(-2px);
+        }
+
         .cooldown {
             color: #ffd93d;
             font-size: 0.9rem;
@@ -289,33 +321,169 @@
 <body>
     <div class="animation-layer" id="animationLayer"></div>
     
-    <div class="container">
-        <h1>Viper hub</h1>
-        <p class="subtitle" id="subtitle">Thank you for using The Script</p>
-        
-        <button class="generate-btn" id="generateBtn" onclick="generateKey()">Create Your Key!</button>
-
-        <div class="result" id="result">
-            <div class="key-output" id="keyOutput"></div>
-            <button class="copy-btn" onclick="copyToClipboard()">Copy Key</button>
+    <div class="container" id="mainContainer">
+        <div id="accessDenied" style="display: none;">
+            <h1 style="color: #ff6b6b;">Access Denied</h1>
+            <div class="error-message">
+                <p>🚫 Direct access to this page is not allowed!</p>
+                <p>Please complete the verification process first.</p>
+            </div>
+            <button class="redirect-btn" onclick="redirectToLootLabs()">
+                Go to Verification
+            </button>
         </div>
 
-        <div class="warning" id="warningMsg" style="display: none;">
-            ⚠️ Key already generated! Only one key per session allowed.
-        </div>
+        <div id="mainContent">
+            <h1>Viper hub</h1>
+            <p class="subtitle" id="subtitle">Thank you for using The Script</p>
+            
+            <button class="generate-btn" id="generateBtn" onclick="generateKey()">Create Your Key!</button>
 
-        <div class="cooldown" id="cooldownMsg" style="display: none;">
-            ⏰ Please wait <span id="timeLeft"></span> before generating another key.
+            <div class="result" id="result">
+                <div class="key-output" id="keyOutput"></div>
+                <button class="copy-btn" onclick="copyToClipboard()">Copy Key</button>
+            </div>
+
+            <div class="warning" id="warningMsg" style="display: none;">
+                ⚠️ Key already generated! Only one key per session allowed.
+            </div>
+
+            <div class="cooldown" id="cooldownMsg" style="display: none;">
+                ⏰ Please wait <span id="timeLeft"></span> before generating another key.
+            </div>
         </div>
     </div>
 
     <script>
+        // SECURITY CONFIGURATION
+        const SECURITY_CONFIG = {
+            // Replace with your actual LootLabs link
+            LOOTLABS_URL: 'https://lootlabs.gg/your-link-here',
+            
+            // Required referrers (add LootLabs domain and your domain)
+            ALLOWED_REFERRERS: [
+                'lootlabs.gg',
+                'link-center.net',
+                'gateway.platoboost.com'
+            ],
+            
+            // Required URL parameters from LootLabs
+            REQUIRED_PARAMS: ['token', 'uid'],
+            
+            // Session expiry time (5 minutes)
+            SESSION_EXPIRY: 5 * 60 * 1000,
+            
+            // Enable/disable security features
+            CHECK_REFERRER: true,
+            CHECK_URL_PARAMS: true,
+            CHECK_SESSION: true,
+            CHECK_TIMESTAMP: true
+        };
+
         let currentKey = '';
         let keyGenerated = false;
         let cooldownTime = 0;
         let cooldownInterval;
 
-        // Method 1: Browser Fingerprinting (Simple)
+        // SECURITY FUNCTIONS
+        function checkReferrer() {
+            if (!SECURITY_CONFIG.CHECK_REFERRER) return true;
+            
+            const referrer = document.referrer.toLowerCase();
+            
+            // Allow if no referrer check is needed
+            if (!referrer) {
+                console.log('No referrer detected');
+                return false;
+            }
+            
+            // Check if referrer contains allowed domains
+            return SECURITY_CONFIG.ALLOWED_REFERRERS.some(domain => 
+                referrer.includes(domain.toLowerCase())
+            );
+        }
+
+        function checkURLParameters() {
+            if (!SECURITY_CONFIG.CHECK_URL_PARAMS) return true;
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Check if all required parameters are present
+            return SECURITY_CONFIG.REQUIRED_PARAMS.every(param => 
+                urlParams.has(param) && urlParams.get(param)
+            );
+        }
+
+        function checkSession() {
+            if (!SECURITY_CONFIG.CHECK_SESSION) return true;
+            
+            const lootlabsSession = sessionStorage.getItem('lootlabs_verified');
+            const lootlabsTimestamp = sessionStorage.getItem('lootlabs_timestamp');
+            
+            if (!lootlabsSession || !lootlabsTimestamp) {
+                return false;
+            }
+            
+            // Check if session is still valid (not expired)
+            const sessionTime = parseInt(lootlabsTimestamp);
+            const currentTime = Date.now();
+            
+            return (currentTime - sessionTime) < SECURITY_CONFIG.SESSION_EXPIRY;
+        }
+
+        function checkTimestamp() {
+            if (!SECURITY_CONFIG.CHECK_TIMESTAMP) return true;
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const timestamp = urlParams.get('timestamp');
+            
+            if (!timestamp) return false;
+            
+            const urlTime = parseInt(timestamp);
+            const currentTime = Date.now();
+            
+            // Allow 5 minute window
+            return (currentTime - urlTime) < SECURITY_CONFIG.SESSION_EXPIRY;
+        }
+
+        function validateAccess() {
+            console.log('Validating access...');
+            
+            const checks = [
+                { name: 'Referrer', passed: checkReferrer() },
+                { name: 'URL Parameters', passed: checkURLParameters() },
+                { name: 'Session', passed: checkSession() },
+                { name: 'Timestamp', passed: checkTimestamp() }
+            ];
+            
+            console.log('Security checks:', checks);
+            
+            // All enabled checks must pass
+            return checks.every(check => check.passed);
+        }
+
+        function setLootLabsSession() {
+            // This should be called by LootLabs when redirecting
+            sessionStorage.setItem('lootlabs_verified', 'true');
+            sessionStorage.setItem('lootlabs_timestamp', Date.now().toString());
+        }
+
+        function blockAccess() {
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('accessDenied').style.display = 'block';
+            document.getElementById('mainContainer').classList.add('blocked-container');
+            
+            // Clear any existing data
+            sessionStorage.clear();
+            
+            console.log('Access blocked - security validation failed');
+        }
+
+        function redirectToLootLabs() {
+            window.location.href = SECURITY_CONFIG.LOOTLABS_URL;
+        }
+
+        // Original functions (unchanged)
         function getBrowserFingerprint() {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -332,11 +500,9 @@
             return btoa(fingerprint).substring(0, 32);
         }
 
-        // Method 2: Session-based tracking with multiple storage
         function hasGeneratedKey() {
             const fingerprint = getBrowserFingerprint();
             
-            // Check multiple storage methods
             const sessionCheck = sessionStorage.getItem('viperKeyGenerated');
             const cookieCheck = document.cookie.includes('viperKey=generated');
             const urlCheck = window.location.hash.includes('generated');
@@ -352,22 +518,16 @@
             const fingerprint = getBrowserFingerprint();
             const timestamp = Date.now();
             
-            // Store in multiple places
             sessionStorage.setItem('viperKeyGenerated', 'true');
             sessionStorage.setItem('viperFingerprint', fingerprint);
             sessionStorage.setItem('viperTimestamp', timestamp.toString());
             
-            // Set cookie (expires in 1 hour)
             document.cookie = `viperKey=generated; max-age=3600; path=/`;
-            
-            // Modify URL hash
             window.location.hash = 'generated-' + fingerprint.substring(0, 8);
             
-            // Start cooldown (24 hours)
-            startCooldown(24 * 60 * 60 * 1000); // 24 hours in milliseconds
+            startCooldown(24 * 60 * 60 * 1000);
         }
 
-        // Method 3: Time-based cooldown system
         function startCooldown(duration) {
             const endTime = Date.now() + duration;
             sessionStorage.setItem('viperCooldownEnd', endTime.toString());
@@ -401,13 +561,11 @@
             return Date.now() < endTime;
         }
 
-        // Method 4: Advanced anti-refresh detection
         function detectRefreshAttempts() {
             let refreshCount = parseInt(sessionStorage.getItem('viperRefreshCount') || '0');
             refreshCount++;
             sessionStorage.setItem('viperRefreshCount', refreshCount.toString());
             
-            // If too many refreshes after key generation, show warning
             if (refreshCount > 3 && hasGeneratedKey()) {
                 document.getElementById('warningMsg').style.display = 'block';
                 document.getElementById('generateBtn').disabled = true;
@@ -415,12 +573,17 @@
             }
         }
 
-        // Initialize page state
         function initializePage() {
+            // SECURITY CHECK - This runs first!
+            if (!validateAccess()) {
+                blockAccess();
+                return;
+            }
+
+            // If security passes, continue with normal initialization
             detectRefreshAttempts();
             
             if (hasGeneratedKey()) {
-                // Show previous key if available
                 const savedKey = sessionStorage.getItem('viperGeneratedKey');
                 if (savedKey) {
                     currentKey = savedKey;
@@ -428,7 +591,6 @@
                     document.getElementById('result').classList.add('show');
                 }
                 
-                // Hide button and subtitle
                 document.getElementById('generateBtn').classList.add('hidden');
                 document.getElementById('subtitle').classList.add('hidden');
                 document.getElementById('warningMsg').style.display = 'block';
@@ -441,11 +603,9 @@
             }
         }
 
-        // Create black animation
         function createBlackAnimation() {
             const animationContainer = document.getElementById('animationLayer');
             
-            // Create floating black particles
             for (let i = 0; i < 50; i++) {
                 const particle = document.createElement('div');
                 particle.className = `black-particle ${['small', 'medium', 'large'][Math.floor(Math.random() * 3)]}`;
@@ -454,7 +614,6 @@
                 animationContainer.appendChild(particle);
             }
 
-            // Create black waves
             setInterval(() => {
                 const wave = document.createElement('div');
                 wave.className = 'black-wave';
@@ -469,7 +628,6 @@
                 }, 4000);
             }, 2000);
 
-            // Create floating black dots
             setInterval(() => {
                 const dot = document.createElement('div');
                 dot.className = 'black-dot';
@@ -488,65 +646,45 @@
         }
 
         function generateKey() {
-            // Check if key already generated or in cooldown
             if (keyGenerated || hasGeneratedKey() || isCooldownActive()) {
                 document.getElementById('warningMsg').style.display = 'block';
                 return;
             }
 
-            // Letters for random selection (excluding vowels for cleaner look)
             const letters = 'BCDFGHJKLMNPQRSTVWXYZ';
             const numbers = '0123456789';
             const specialChars = '$@#&*';
             
-            // Generate key following the pattern: VIPER_L#####L##L#$##L###L#
             let keyPart = '';
-            
-            // Position 1: Letter
             keyPart += letters.charAt(Math.floor(Math.random() * letters.length));
             
-            // Position 2-6: Numbers
             for (let i = 0; i < 5; i++) {
                 keyPart += numbers.charAt(Math.floor(Math.random() * numbers.length));
             }
             
-            // Position 7: Letter
             keyPart += letters.charAt(Math.floor(Math.random() * letters.length));
             
-            // Position 8-9: Numbers
             for (let i = 0; i < 2; i++) {
                 keyPart += numbers.charAt(Math.floor(Math.random() * numbers.length));
             }
             
-            // Position 10: Letter
             keyPart += letters.charAt(Math.floor(Math.random() * letters.length));
-            
-            // Position 11: Number
             keyPart += numbers.charAt(Math.floor(Math.random() * numbers.length));
-            
-            // Position 12: Special Character
             keyPart += specialChars.charAt(Math.floor(Math.random() * specialChars.length));
             
-            // Position 13-14: Numbers
             for (let i = 0; i < 2; i++) {
                 keyPart += numbers.charAt(Math.floor(Math.random() * numbers.length));
             }
             
-            // Position 15: Letter
             keyPart += letters.charAt(Math.floor(Math.random() * letters.length));
             
-            // Position 16-18: Numbers
             for (let i = 0; i < 3; i++) {
                 keyPart += numbers.charAt(Math.floor(Math.random() * numbers.length));
             }
             
-            // Position 19: Letter
             keyPart += letters.charAt(Math.floor(Math.random() * letters.length));
-            
-            // Position 20: Number
             keyPart += numbers.charAt(Math.floor(Math.random() * numbers.length));
 
-            // Create the final key
             const finalKey = `VIPER_${keyPart}`;
             
             currentKey = finalKey;
@@ -555,11 +693,9 @@
             document.getElementById('keyOutput').textContent = finalKey;
             document.getElementById('result').classList.add('show');
             
-            // Mark key as generated and start cooldown
             markKeyAsGenerated();
             keyGenerated = true;
             
-            // Hide the button and subtitle
             document.getElementById('generateBtn').classList.add('hidden');
             document.getElementById('subtitle').classList.add('hidden');
         }
@@ -582,12 +718,9 @@
             });
         }
 
-        // Prevent common bypass methods
         function preventBypass() {
-            // Disable right-click context menu
             document.addEventListener('contextmenu', e => e.preventDefault());
             
-            // Disable F12, Ctrl+Shift+I, Ctrl+U
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'F12' || 
                     (e.ctrlKey && e.shiftKey && e.key === 'I') ||
@@ -596,7 +729,6 @@
                 }
             });
             
-            // Detect if developer tools are open
             let devtools = false;
             setInterval(() => {
                 if (window.outerHeight - window.innerHeight > 200 || 
@@ -610,20 +742,31 @@
             }, 1000);
         }
 
-        // Initialize everything when page loads
+        // INITIALIZATION
         window.addEventListener('load', () => {
             createBlackAnimation();
-            initializePage();
+            initializePage(); // This now includes security checks
             preventBypass();
         });
 
-        // Handle page visibility changes (tab switching)
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                // User switched away from tab
                 console.clear();
             }
         });
+
+        // FOR TESTING ONLY - Remove in production
+        // This simulates LootLabs setting the session
+        function testAccess() {
+            setLootLabsSession();
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.has('token')) {
+                window.location.search = '?token=test123&uid=user456&timestamp=' + Date.now();
+            }
+        }
+        
+        // Uncomment the line below for testing, then remove it for production
+        // testAccess();
     </script>
 </body>
 </html>
